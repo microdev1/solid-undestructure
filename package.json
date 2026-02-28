@@ -33,11 +33,11 @@
     "@types/babel__generator": "^7.27.0",
     "@types/babel__traverse": "^7.28.0",
     "@types/bun": "^1.3.9",
-    "config": "catalog:",
-    "eslint": "catalog:",
-    "prettier": "catalog:",
+    "config": "link:config",
+    "eslint": "^9.39.3",
+    "prettier": "^3.8.1",
     "prettier-plugin-organize-imports": "^4.3.0",
-    "typescript": "catalog:",
+    "typescript": "^5.9.3",
     "vite": "^7.3.1"
   }
 }

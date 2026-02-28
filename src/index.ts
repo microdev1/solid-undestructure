@@ -17,66 +17,64 @@ const generate =
  * This ensures that props remain reactive by using mergeProps and splitProps instead of
  * direct destructuring, which would break Solid's reactivity system.
  */
-export default (): Plugin => {
-  return {
-    name: 'solid-undestructure',
-    enforce: 'pre',
-    transform(code: string, id: string) {
-      // Only process TypeScript/JavaScript files in components
-      if (!/\.(tsx?|jsx?)$/.test(id)) {
-        return null
-      }
+export default (): Plugin => ({
+  name: 'solid-undestructure',
+  enforce: 'pre',
+  transform(code: string, id: string) {
+    // Only process TypeScript/JavaScript files in components
+    if (!/\.(tsx?|jsx?)$/.test(id)) {
+      return null
+    }
 
-      // Skip node_modules
-      if (id.includes('node_modules')) {
-        return null
-      }
+    // Skip node_modules
+    if (id.includes('node_modules')) {
+      return null
+    }
 
-      // Check if the file contains props destructuring
-      if (!/\(\s*\{/.test(code)) {
-        return null
-      }
+    // Check if the file contains props destructuring
+    if (!/\(\s*\{/.test(code)) {
+      return null
+    }
 
-      try {
-        const ast = parse(code, {
-          sourceType: 'module',
-          plugins: ['typescript', 'jsx']
-        })
+    try {
+      const ast = parse(code, {
+        sourceType: 'module',
+        plugins: ['typescript', 'jsx']
+      })
 
-        const astNode = ast as unknown as t.Node
-        traverse(astNode, {
-          // Handle function declarations and arrow functions
-          Function(path: NodePath<t.Function>) {
-            const params = path.node.params
-            if (params.length !== 1) return
+      const astNode = ast as unknown as t.Node
+      traverse(astNode, {
+        // Handle function declarations and arrow functions
+        Function(path: NodePath<t.Function>) {
+          const params = path.node.params
+          if (params.length !== 1) return
 
-            const firstParam = params[0]
+          const firstParam = params[0]
 
-            // Check if first param is an object pattern (destructuring)
-            if (!t.isObjectPattern(firstParam)) return
+          // Check if first param is an object pattern (destructuring)
+          if (!t.isObjectPattern(firstParam)) return
 
-            // Check if this is likely a component (returns JSX or has JSX in body)
-            const isComponent = checkIfComponent(path)
-            if (!isComponent) return
+          // Check if this is likely a component (returns JSX or has JSX in body)
+          const isComponent = checkIfComponent(path)
+          if (!isComponent) return
 
-            transformPropsDestructuring(path, firstParam)
-          }
-        })
-
-        const output = generate(astNode, {
-          retainLines: true,
-          compact: false
-        })
-
-        return {
-          code: output.code,
-          map: output.map
+          transformPropsDestructuring(path, firstParam)
         }
-      } catch (error) {
-        // If parsing fails, return original code
-        console.warn(`Failed to transform ${id}:`, error)
-        return null
+      })
+
+      const output = generate(astNode, {
+        retainLines: true,
+        compact: false
+      })
+
+      return {
+        code: output.code,
+        map: output.map
       }
+    } catch (error) {
+      // If parsing fails, return original code
+      console.warn(`Failed to transform ${id}:`, error)
+      return null
     }
   }
-}
+})

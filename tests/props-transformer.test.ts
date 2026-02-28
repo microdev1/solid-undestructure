@@ -65,7 +65,7 @@ function Card({ title, ...props }) {
     const out = transformOrThrow(code)
     expectContains(out, 'splitProps')
     expectContains(out, '"title"')
-    expectContains(out, 'rest')
+    expectContains(out, 'props')
   })
 })
 
@@ -120,7 +120,7 @@ function TestComponent({
 }) {
   return (
     <div {...props}>
-      <p>{rest.class}</p>
+      <p>{props.class}</p>
       <pre>{a}</pre>
       <pre>{b}</pre>
       <img src={avatar} alt={name} />
@@ -156,7 +156,7 @@ export default TestComponent
 
     // rest should still be used directly
     expectContains(out, '{...props}')
-    expectContains(out, 'rest.class')
+    expectContains(out, 'props.class')
 
     // No leftover destructuring in function signature
     expectNotMatches(out, /function TestComponent\(\s*\{/)

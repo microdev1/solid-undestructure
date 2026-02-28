@@ -50,10 +50,11 @@ bun add -d @types/babel__traverse @types/babel__generator @types/babel__core
 ## Usage
 
 ```typescript
-import solidPropsTransform from './plugins/solid-destructure'
+import solidDestructure from './plugins/solid-destructure'
+import solid from 'vite-plugin-solid'
 
 export default defineConfig({
-  plugins: [solidPropsTransform() /* other plugins */]
+  plugins: [solidDestructure(), solid() /* other plugins */]
 })
 ```
 

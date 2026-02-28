@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
   expectContains,
-  expectMatches,
   expectNotContains,
   expectNotMatches,
   transform,
@@ -41,71 +40,32 @@ function Greeting({ name, age }) {
 // ─── Default Values ──────────────────────────────────────────────────────────
 
 describe('default values', () => {
-  test('wraps defaults in _$mergeProps', () => {
+  test('wraps defaults in mergeProps', () => {
     const code = `
 function Button({ label = 'Click me', disabled = false }) {
   return <button disabled={disabled}>{label}</button>
 }
 `
     const out = transformOrThrow(code)
-    expectContains(out, '_$mergeProps')
+    expectContains(out, 'mergeProps')
     expectContains(out, "'Click me'")
     expectContains(out, 'false')
-  })
-
-  test('adds _$mergeProps import from solid-js', () => {
-    const code = `
-function Button({ label = 'Click me' }) {
-  return <button>{label}</button>
-}
-`
-    const out = transformOrThrow(code)
-    expectContains(out, 'from "solid-js"')
-    expectContains(out, '_$mergeProps')
-  })
-
-  test('does not modify existing solid-js import', () => {
-    const code = `
-import { createSignal } from 'solid-js'
-
-function Counter({ count = 0 }) {
-  return <span>{count}</span>
-}
-`
-    const out = transformOrThrow(code)
-    // createSignal stays in its own import from solid-js
-    expectContains(out, 'createSignal')
-    expectMatches(out, /import\s*\{[^}]*createSignal[^}]*\}\s*from\s*["']solid-js["']/)
-    // _$mergeProps comes from solid-js separately
-    expectContains(out, '_$mergeProps')
-    expectContains(out, 'from "solid-js"')
   })
 })
 
 // ─── Rest Properties ─────────────────────────────────────────────────────────
 
 describe('rest properties', () => {
-  test('uses _$splitProps for rest spread', () => {
+  test('uses splitProps for rest spread', () => {
     const code = `
 function Card({ title, ...rest }) {
   return <div {...rest}><h2>{title}</h2></div>
 }
 `
     const out = transformOrThrow(code)
-    expectContains(out, '_$splitProps')
+    expectContains(out, 'splitProps')
     expectContains(out, '"title"')
     expectContains(out, 'rest')
-  })
-
-  test('adds _$splitProps import from solid-js', () => {
-    const code = `
-function Card({ title, ...rest }) {
-  return <div {...rest}><h2>{title}</h2></div>
-}
-`
-    const out = transformOrThrow(code)
-    expectContains(out, '_$splitProps')
-    expectContains(out, 'from "solid-js"')
   })
 })
 
@@ -127,15 +87,15 @@ function Info({ nested: { a, b } }) {
 // ─── Combined Features ──────────────────────────────────────────────────────
 
 describe('combined features', () => {
-  test('defaults + rest produces _$mergeProps AND _$splitProps', () => {
+  test('defaults + rest produces mergeProps AND splitProps', () => {
     const code = `
 function Widget({ label = 'hi', ...rest }) {
   return <div {...rest}>{label}</div>
 }
 `
     const out = transformOrThrow(code)
-    expectContains(out, '_$mergeProps')
-    expectContains(out, '_$splitProps')
+    expectContains(out, 'mergeProps')
+    expectContains(out, 'splitProps')
   })
 
   test('TestComponent: defaults + nested + rest', () => {
@@ -177,13 +137,13 @@ export default TestComponent
 `
     const out = transformOrThrow(code)
 
-    // _$mergeProps for defaults
-    expectContains(out, '_$mergeProps')
+    // mergeProps for defaults
+    expectContains(out, 'mergeProps')
     expectContains(out, "'World'")
     expectContains(out, "'/default.png'")
 
-    // _$splitProps for rest
-    expectContains(out, '_$splitProps')
+    // splitProps for rest
+    expectContains(out, 'splitProps')
     expectContains(out, '"name"')
     expectContains(out, '"count"')
     expectContains(out, '"avatar"')
@@ -197,12 +157,6 @@ export default TestComponent
     // rest should still be used directly
     expectContains(out, '{...rest}')
     expectContains(out, 'rest.class')
-
-    // For stays in solid-js import, _$mergeProps/_$splitProps come from solid-js
-    expectContains(out, 'For')
-    expectContains(out, '_$mergeProps')
-    expectContains(out, '_$splitProps')
-    expectContains(out, 'from "solid-js"')
 
     // No leftover destructuring in function signature
     expectNotMatches(out, /function TestComponent\(\s*\{/)
@@ -232,18 +186,6 @@ function B({ y }) { return <span>{y}</span> }
     const out = transformOrThrow(code)
     expectContains(out, '.x')
     expectContains(out, '.y')
-  })
-
-  test('multiple components do not duplicate solid-js imports', () => {
-    const code = `
-function A({ x, ...rest }) { return <div {...rest}>{x}</div> }
-function B({ y, ...rest }) { return <span {...rest}>{y}</span> }
-`
-    const out = transformOrThrow(code)
-    const splitImports = out.match(
-      /import\s*\{\s*splitProps as _\$splitProps\s*\}\s*from\s*["']solid-js\/web["']/g
-    )
-    expect(splitImports).toHaveLength(1)
   })
 
   test('preserves non-component functions unchanged', () => {

@@ -29,22 +29,20 @@ function Component(_props) {
 }
 ```
 
-This plugin performs that transformation automatically at build time.
+This plugin performs that transformation automatically.
 
 ## Features
 
 - ✨ Automatically transforms destructured props to `splitProps`/`mergeProps`
 - 🎯 Handles default values using `mergeProps`
-- 🔄 Preserves rest parameters with `splitProps`
+- 🔄 Preserves spread parameters with `splitProps`
 - 📦 Auto-imports `mergeProps` and `splitProps` from 'solid-js'
-- 🚀 Only processes JSX components (checks for JSX in function body)
-- ⚡ Skips non-component functions for performance
+- ⚡ Skips non-component functions
 
 ## Installation
 
 ```bash
-bun add -d @babel/parser @babel/traverse @babel/generator @babel/types
-bun add -d @types/babel__traverse @types/babel__generator @types/babel__core
+bun add -D vite-plugin-solid-undestructure
 ```
 
 ## Usage
@@ -99,7 +97,7 @@ function Button(_props) {
 }
 ```
 
-### Rest Properties
+### Spread Properties
 
 ```tsx
 // Before
@@ -116,7 +114,7 @@ function Card({ title, description, ...props }) {
 import { splitProps } from 'solid-js'
 
 function Card(_props) {
-  const [, rest] = splitProps(_props, ['title', 'description'])
+  const [, props] = splitProps(_props, ['title', 'description'])
   return (
     <div {...props}>
       <h2>{_props.title}</h2>
@@ -126,7 +124,7 @@ function Card(_props) {
 }
 ```
 
-### TestComponent (Defaults + Nested Destructuring + Rest)
+### TestComponent (Defaults + Nested Destructuring + Spread)
 
 ```tsx
 // Before
@@ -150,7 +148,7 @@ function TestComponent({
 }) {
   return (
     <div {...props}>
-      <p>{rest.class}</p>
+      <p>{props.class}</p>
       <pre>{a}</pre>
       <pre>{b}</pre>
       <img src={avatar} alt={name} />
@@ -168,10 +166,10 @@ import { For, mergeProps, splitProps } from 'solid-js'
 
 function TestComponent(_props) {
   const _merged = mergeProps({ name: 'World', count: 0, avatar: '/default.png' }, _props)
-  const [, rest] = splitProps(_merged, ['name', 'count', 'avatar', 'items', 'nested'])
+  const [, props] = splitProps(_merged, ['name', 'count', 'avatar', 'items', 'nested'])
   return (
     <div {...props}>
-      <p>{rest.class}</p>
+      <p>{props.class}</p>
       <pre>{_merged.nested.a}</pre>
       <pre>{_merged.nested.b}</pre>
       <img src={_merged.avatar} alt={_merged.name} />
@@ -190,10 +188,10 @@ function TestComponent(_props) {
 1. **Parse** — Uses `@babel/parser` to parse TypeScript/JSX files into an AST
 2. **Detect** — Identifies functions with destructured props that return JSX
 3. **Transform** — Rewrites destructuring into `mergeProps`/`splitProps` calls and replaces all references to destructured identifiers with property accesses on the merged/props object
-4. **Import** — Adds necessary imports from `solid-js` (appends to existing import if present)
+4. **Import** — Adds necessary imports from `solid-js` if not already present
 5. **Generate** — Outputs transformed code with source maps
 
-## Limitations
+## Notes
 
 - Only transforms functions that return JSX (regular functions are left untouched)
 - Requires the first parameter to be an object pattern (destructuring)
@@ -202,5 +200,5 @@ function TestComponent(_props) {
 ## Testing
 
 ```bash
-bun test apps/frontend/plugins/solid-undestructure
+bun test
 ```

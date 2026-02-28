@@ -1,10 +1,18 @@
-import generate from '@babel/generator'
+import generateImport from '@babel/generator'
 import { parse } from '@babel/parser'
-import traverse, { NodePath } from '@babel/traverse'
+import traverseImport, { NodePath } from '@babel/traverse'
 import * as t from '@babel/types'
 import { Plugin } from 'vite'
 import { checkIfComponent } from './modules/component-detector'
 import { transformPropsDestructuring } from './modules/props-transformer'
+
+// Handle ESM/CJS interop
+const traverse =
+  (traverseImport as unknown as { default: typeof traverseImport | undefined }).default ??
+  traverseImport
+const generate =
+  (generateImport as unknown as { default: typeof generateImport | undefined }).default ??
+  generateImport
 
 /**
  * Vite plugin that transforms Solid.js component prop destructuring into reactive prop access.

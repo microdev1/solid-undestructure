@@ -1,0 +1,3 @@
+[submodule "modules/config"]
+	path = modules/config
+	url = https://github.com/microdev1/config-ts.git

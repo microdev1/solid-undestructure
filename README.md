@@ -223,7 +223,7 @@ import solid from 'eslint-plugin-solid'
 import solidUndestructure from 'vite-plugin-solid-undestructure/eslint'
 
 export default [
-  solidUndestructure.configs.recommended,
+  solidUndestructure.configs['flat/recommended'],
   solid.configs['flat/typescript'],
   {
     rules: {

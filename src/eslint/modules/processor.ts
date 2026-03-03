@@ -4,7 +4,7 @@ import { transformForLinting, TransformResult } from './transform'
 // Store transform metadata per file for postprocess to use
 const transformCache = new Map<string, TransformResult>()
 
-export const processor = {
+export const processor: Linter.Processor = {
   meta: {
     name: 'solid-undestructure',
     version: '0.1.1'

@@ -1,21 +1,25 @@
+import { ESLint } from 'eslint'
 import { processor } from './modules/processor'
 
-const plugin = {
+const configs: ESLint.Plugin['configs'] = {}
+
+const plugin: ESLint.Plugin = {
   meta: {
-    name: 'eslint-plugin-solid-undestructure',
-    version: '0.1.1'
+    name: 'eslint-plugin-solid-undestructure'
   },
   processors: {
     'solid-undestructure': processor
   },
-  configs: {} as Record<string, { plugins: Record<string, unknown>; processor: string }>
+  configs
 }
 
-plugin.configs['recommended'] = {
-  plugins: {
-    'solid-undestructure': plugin
-  },
-  processor: 'solid-undestructure/solid-undestructure'
-}
+Object.assign(configs, {
+  'flat/recommended': {
+    plugins: {
+      'solid-undestructure': plugin
+    },
+    processor: 'solid-undestructure/solid-undestructure'
+  }
+})
 
 export default plugin

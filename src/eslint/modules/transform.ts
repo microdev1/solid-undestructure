@@ -15,6 +15,49 @@ export type TransformResult = {
   code: string
   /** Maps original local name → prop key (e.g. "localName" → "propKey") */
   propMappings: Map<string, string>
+  /** Maps original local name → full transformed access (e.g. "size" → "_props.size") */
+  propAccess: Map<string, string>
+  /** Maps generated rest identifier name → original rest name (e.g. "_props" → "props") */
+  restMapping: { generated: string; original: string } | null
+}
+
+/**
+ * Renames rest parameter references to the generated props identifier.
+ * When there's a rest element (e.g. `...props`), the full transform
+ * produces `const [, props] = splitProps(...)` keeping `props` defined.
+ * For linting we skip splitProps, so rename rest references to the
+ * generated identifier so that e.g. `props.class` → `_props.class`.
+ * Only renames actual references to the rest parameter, not shadowed variables.
+ */
+function renameRestReferences(
+  bodyPath: NodePath,
+  restIdentifier: t.Identifier,
+  propsIdName: string,
+  parentPath: NodePath<t.Function>
+): void {
+  const restName = restIdentifier.name
+  const restBinding = parentPath.scope.getBinding(restName)
+  const restVisitor = {
+    Identifier(identPath: NodePath<t.Identifier>) {
+      const node = identPath.node
+      const parent = identPath.parent
+      if (node.name !== restName) return
+
+      // Only rename if this identifier references the same binding as the rest parameter
+      const currentBinding = identPath.scope.getBinding(restName)
+      if (currentBinding !== restBinding) return
+
+      if (identPath.isBindingIdentifier()) return
+      if (t.isMemberExpression(parent) && parent.property === node && !parent.computed) {
+        return
+      }
+      if (t.isObjectProperty(parent) && parent.key === node && !parent.computed) {
+        return
+      }
+      node.name = propsIdName
+    }
+  }
+  bodyPath.traverse(restVisitor)
 }
 
 /**
@@ -28,7 +71,12 @@ export function transformForLinting(code: string): TransformResult | null {
     return null
   }
 
-  const propMappings = new Map<string, string>()
+  const result: TransformResult = {
+    code: '',
+    propMappings: new Map(),
+    propAccess: new Map(),
+    restMapping: null
+  }
 
   let transformed = false
 
@@ -52,16 +100,21 @@ export function transformForLinting(code: string): TransformResult | null {
         // Extract info using shared utility
         const info = extractPropsInfo(firstParam)
 
-        // Build propMappings from extracted info
+        // Generate a unique identifier to avoid conflicts with user-defined _props
+        const propsIdentifier = path.scope.generateUidIdentifier('props')
+        const propsIdName = propsIdentifier.name
+
+        // Build propMappings and propAccess from extracted info
         for (const [localName, key] of info.localToKey) {
-          propMappings.set(localName, key)
+          result.propMappings.set(localName, key)
+          result.propAccess.set(localName, `${propsIdName}.${key}`)
         }
         for (const [localName, propPath] of info.nestedPropPaths) {
-          propMappings.set(localName, propPath.join('.'))
+          result.propMappings.set(localName, propPath.join('.'))
+          result.propAccess.set(localName, `${propsIdName}.${propPath.join('.')}`)
         }
 
-        // Replace parameter with _props identifier
-        const propsIdentifier = t.identifier('_props')
+        // Preserve TypeAnnotation from the destructured param
         if (firstParam.typeAnnotation) {
           propsIdentifier.typeAnnotation = firstParam.typeAnnotation
         }
@@ -70,7 +123,12 @@ export function transformForLinting(code: string): TransformResult | null {
         // Replace references using shared utility
         const bodyPath = path.get('body')
         if (!Array.isArray(bodyPath)) {
-          replacePropsReferences(bodyPath, '_props', info)
+          replacePropsReferences(bodyPath, propsIdName, info)
+
+          if (info.restIdentifier) {
+            result.restMapping = { generated: propsIdName, original: info.restIdentifier.name }
+            renameRestReferences(bodyPath, info.restIdentifier, propsIdName, path)
+          }
         }
 
         transformed = true
@@ -87,7 +145,7 @@ export function transformForLinting(code: string): TransformResult | null {
       compact: false
     })
 
-    return { code: output.code, propMappings }
+    return { ...result, code: output.code }
   } catch (error) {
     console.warn('Failed to transform:', error)
     return null

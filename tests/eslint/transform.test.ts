@@ -107,6 +107,19 @@ describe('transformForLinting', () => {
     expect(code).not.toContain('_props.rest')
   })
 
+  test('renames rest identifier references to generated props id', () => {
+    const code = transformCode(`
+      function Component({ title, ...props }) {
+        return <div class={props.class}>{title}</div>
+      }
+    `)
+    expect(code).toContain('_props.title')
+    // props.class should become _props.class since the original `props`
+    // from the rest element is no longer defined after the transform
+    expect(code).toContain('_props.class')
+    expect(code).not.toMatch(/[^_]props\.class/)
+  })
+
   test('handles nested destructuring', () => {
     const code = transformCode(`
       function Component({ nested: { a, b } }) {
@@ -147,7 +160,8 @@ describe('transformForLinting', () => {
       }
     `)
     expect(code).toContain('_props.a')
-    expect(code).toContain('_props.b')
+    // Second component may get _props2 due to scope-level uniqueness
+    expect(code).toMatch(/_props\d*\.b/)
   })
 
   test('handles exported components', () => {
@@ -157,5 +171,32 @@ describe('transformForLinting', () => {
       }
     `)
     expect(code).toContain('_props.size')
+  })
+
+  test('avoids conflict with user-defined _props variable', () => {
+    const code = transformCode(`
+      function Component({ size }) {
+        const _props = { extra: true }
+        return <div data-extra={_props.extra}>{size}</div>
+      }
+    `)
+    // Should NOT use _props since it's already taken; should use _props2 or similar
+    expect(code).not.toMatch(/function Component\(_props\)/)
+    expect(code).not.toContain('{ size }')
+    // The user-defined _props should be preserved
+    expect(code).toContain('_props.extra')
+  })
+
+  test('populates propAccess map with full access patterns', () => {
+    const result = transformForLinting(`
+      function Component({ size: mySize, color }) {
+        return <div>{mySize} {color}</div>
+      }
+    `)
+    expect(result).not.toBeNull()
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    expect(result!.propAccess.get('mySize')).toBe('_props.size')
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    expect(result!.propAccess.get('color')).toBe('_props.color')
   })
 })

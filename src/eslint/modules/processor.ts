@@ -1,3 +1,4 @@
+import { Linter } from 'eslint'
 import { transformForLinting, TransformResult } from './transform'
 
 // Store transform metadata per file for postprocess to use
@@ -25,7 +26,7 @@ export const processor = {
     return [result.code]
   },
 
-  postprocess(messages: { ruleId: string | null; message: string }[][], filename: string) {
+  postprocess(messages: Linter.LintMessage[][], filename: string) {
     const result = transformCache.get(filename)
     if (!result) {
       return messages[0]
@@ -33,27 +34,55 @@ export const processor = {
 
     transformCache.delete(filename)
 
-    // Build a regex to replace 'props.X' references in messages with the original local name
-    const { propMappings } = result
-    if (propMappings.size === 0) {
+    const { propAccess, restMapping } = result
+    if (propAccess.size === 0 && !restMapping) {
       return messages[0]
     }
 
-    // Create reverse mapping: propKey → localName
-    const keyToLocal = new Map<string, string>()
-    for (const [localName, propKey] of propMappings) {
-      keyToLocal.set(propKey, localName)
-    }
+    // Track cumulative column shift per line from prior expansions
+    const lineShifts = new Map<number, number>()
 
     return messages[0].map((msg) => {
       let { message } = msg
-      // Replace '_props.X' with 'X' (the original destructured name) in error messages
-      for (const [localName, propKey] of propMappings) {
-        // Handle both '_props.X' (top-level) and '_props.a.b' (nested) patterns
-        const propsAccess = `_props.${propKey}`
-        message = message.replaceAll(`'${propsAccess}'`, `'${localName}'`)
+      let lengthDelta = 0
+
+      for (const [localName, access] of propAccess) {
+        if (message.includes(`'${access}'`)) {
+          message = message.replaceAll(`'${access}'`, `'${localName}'`)
+          // Track length difference for endColumn adjustment (best-effort)
+          lengthDelta = access.length - localName.length
+        }
       }
-      return { ...msg, message }
+
+      // Replace generated rest identifier with original (e.g., _props → props)
+      if (restMapping) {
+        const restPattern = new RegExp(`'${restMapping.generated}(?:\\.|')`)
+        if (restPattern.test(message)) {
+          message = message.replaceAll(restMapping.generated, restMapping.original)
+          lengthDelta = restMapping.generated.length - restMapping.original.length
+        }
+      }
+
+      const adjusted = { ...msg, message } as typeof msg & { endColumn?: number }
+
+      if (lengthDelta > 0 && typeof msg.column === 'number') {
+        const priorShift = lineShifts.get(msg.line) ?? 0
+
+        // Shift column back by cumulative prior expansions on this line
+        if (priorShift > 0) {
+          adjusted.column = msg.column - priorShift
+        }
+
+        // Shrink the squiggly underline to match the original variable length
+        if (typeof msg.endColumn === 'number') {
+          adjusted.endColumn = msg.endColumn - priorShift - lengthDelta
+        }
+
+        // Accumulate shift for subsequent messages on this line
+        lineShifts.set(msg.line, priorShift + lengthDelta)
+      }
+
+      return adjusted
     })
   },
 
